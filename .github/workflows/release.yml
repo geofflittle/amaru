@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -39,7 +39,7 @@ jobs:
               sudo snap install zig --classic --beta
               cargo install cargo-zigbuild
               rustup target add aarch64-unknown-linux-musl
-            runner: ubuntu-24.04-arm
+            runner: ubuntu-24.04
 
           - title: macos-aarch64
             target: aarch64-apple-darwin
@@ -71,6 +71,7 @@ jobs:
           if [[ -n "${{ matrix.environments.setup }}" ]]; then
             ${{ matrix.environments.setup || 'echo "no setup needed..."' }}
           fi
+          export PATH="$HOME/.cargo/bin:$PATH"
           cargo ${{ matrix.environments.build }} --release --locked --target ${{ matrix.environments.target }}
 
       - name: prepare files
@@ -85,12 +86,36 @@ jobs:
           mv ./target/${{ matrix.environments.target }}/release/amaru $OUT/bin/amaru
           chmod +x $OUT/bin/amaru
           cp LICENSE README.md CHANGELOG.md $OUT
-          echo "path=$OUT" >> "$GITHUB_OUTPUT"
+          tar -czf "$OUT.tar.gz" $OUT
+          echo "artifact_name=$OUT.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "path=$OUT.tar.gz" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
         with:
           name: amaru-${{ steps.meta.outputs.version }}-${{ matrix.environments.title }}
           path: ${{ steps.pack.outputs.path }}
+
+  release-upload:
+    name: Upload Release Assets
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R ./artifacts
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ./artifacts/**/amaru-*-linux-aarch64.tar.gz
+            ./artifacts/**/amaru-*-linux-x86_64.tar.gz
+            ./artifacts/**/amaru-*-macos-aarch64.tar.gz
 
   merge:
     name: Merge build artifacts
@@ -107,13 +132,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist/downloads
-          for dir in ./artifacts/*; do
-            name=$(basename "$dir")
-            static_name=$(echo "$name" | sed -E 's/amaru-nightly-[0-9a-f]{8,12}-(.*)/\1/')
-            version=$(echo "$name" | sed -E 's/amaru-(nightly-[0-9a-f]{8,12})-.*/\1/')
-            tar -czf "$static_name.tar.gz" $dir
-            mv "$static_name.tar.gz" dist/downloads
-          done
+          find ./artifacts -name "*.tar.gz" -exec cp {} dist/downloads/ \;
+          VERSION="nightly-$(git rev-parse --short=8 HEAD 2>/dev/null || echo 'unknown')"
+          export version=$VERSION
           cat > dist/index.html <<EOF
             <!DOCTYPE html>
             <html lang="en">
