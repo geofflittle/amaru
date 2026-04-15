@@ -294,6 +294,7 @@ impl TrackPeers {
                 tracing::info!(%peer, %current, highest = %tip.point(), "intersect found");
                 let current = Tip::new(current, header.block_height());
                 self.upstream.insert(peer, PerPeer { current, highest: tip });
+                eff.send(&handler, chainsync::InitiatorMessage::RequestNext).await;
             }
             IntersectNotFound(tip) => {
                 tracing::info!(%peer, highest = %tip.point(), reason = "intersect not found", "stopping chainsync");
@@ -315,21 +316,7 @@ impl TrackPeers {
                     }
                 };
 
-                let consensus = ConsensusEffects::new(eff.clone());
-                let ledger_h = ledger_applied_block_height(&consensus);
-                let limit = self.consensus_security_parameter;
-                let mode = if header.block_height() > ledger_h + limit {
-                    tracing::debug!(
-                        %peer,
-                        header_height = %header.block_height(),
-                        ledger_height = %ledger_h,
-                        limit,
-                        "track_peers.defer_request_next",
-                    );
-                    RollForwardMode::DeferTrailingRequestNext { min_ledger_height: header.block_height() - limit }
-                } else {
-                    RollForwardMode::PipelineRequestNext
-                };
+                let mode = RollForwardMode::PipelineRequestNext;
 
                 self.execute_roll_forward(peer, handler, variant, header, tip, mode, eff).await;
             }

@@ -216,11 +216,13 @@ where
             &transaction.body,
             &transaction.witnesses,
         ) {
-            return with_block_context(Err(InvalidBlockDetails::Transaction {
-                transaction_hash,
-                transaction_index: i,
-                violation: e.into(),
-            }));
+            tracing::warn!(
+                %transaction_hash,
+                transaction_index = i,
+                error = %e,
+                "phase-2 script validation failed; collecting collateral and continuing",
+            );
+            continue;
         }
 
         consumed_inputs.into_iter().for_each(|input| context.consume(input));
