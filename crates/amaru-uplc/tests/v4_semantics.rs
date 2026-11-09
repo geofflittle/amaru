@@ -57,7 +57,7 @@ fn v4_reference_budgets_and_failures() {
 }
 
 #[test]
-fn v4_arithmetic_operands_are_unbounded_but_v3_is_unchanged() {
+fn arithmetic_operands_are_unbounded_from_protocol_12() {
     for builtin in [
         DefaultFunction::AddInteger,
         DefaultFunction::SubtractInteger,
@@ -81,12 +81,23 @@ fn v4_arithmetic_operands_are_unbounded_but_v3_is_unchanged() {
                 let program = Program::new(&arena, MachineVersion::V1_1_0, term);
                 let result = program.eval(&arena, CostModel::v4(&costs()), ExBudget::max());
                 assert!(result.is_success(), "{builtin:?}: {result:?}");
-                let old = program.eval(
-                    &arena,
-                    CostModel::new(PlutusVersion::V3, ProtocolVersion::new(12, 0), &costs()),
-                    ExBudget::max(),
-                );
-                assert!(matches!(old.error(), Some(MachineError::Runtime(RuntimeError::IntegerOutOfBounds(_)))));
+                for language in [PlutusVersion::V1, PlutusVersion::V2, PlutusVersion::V3] {
+                    let current = program.eval(
+                        &arena,
+                        CostModel::default_for(language, ProtocolVersion::new(12, 0)),
+                        ExBudget::max(),
+                    );
+                    assert!(current.is_success(), "{builtin:?} {language:?} at 12: {current:?}");
+                    let old = program.eval(
+                        &arena,
+                        CostModel::default_for(language, ProtocolVersion::new(11, 0)),
+                        ExBudget::max(),
+                    );
+                    assert!(
+                        matches!(old.error(), Some(MachineError::Runtime(RuntimeError::IntegerOutOfBounds(_)))),
+                        "{builtin:?} {language:?} at 11: {old:?}"
+                    );
+                }
             }
         }
     }
