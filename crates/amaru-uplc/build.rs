@@ -139,7 +139,7 @@ fn generate_conformance_tests(dir_path: &Path) -> String {
                         "{scenario_id}",
                         "{title}",
                         "{group}",
-                        PlutusVersion::{plutus_version},
+                        Language::{plutus_version},
                         protocol_version::{protocol_version},
                         {text},
                         {expected_text},
@@ -165,12 +165,14 @@ fn test_metadata(path: &Path) -> (&'static str, &'static [&'static str], &Path) 
     let protocol_version = match protocol_component.as_os_str().to_string_lossy().as_ref() {
         "protocol-version-10" => "PROTOCOL_VERSION_10",
         "protocol-version-11" => "PROTOCOL_VERSION_11",
+        "protocol-version-12" => "PROTOCOL_VERSION_12",
         other => panic!("unsupported conformance protocol directory: {other}"),
     };
     let plutus_versions = match plutus_component.as_os_str().to_string_lossy().as_ref() {
         "v1" => &["V1"][..],
         "v2" => &["V2"][..],
         "v3" => &["V3"][..],
+        "v4" => &["V4"][..],
         "all" => &["V1", "V2", "V3"][..],
         other => panic!("unsupported conformance Plutus version directory: {other}"),
     };

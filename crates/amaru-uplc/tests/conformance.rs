@@ -15,6 +15,7 @@
 #![expect(clippy::panic, clippy::unwrap_used)]
 
 use std::{
+    fmt,
     fs::OpenOptions,
     io::Write,
     mem,
@@ -40,6 +41,8 @@ static COST_MODEL_PV10_V3: OnceLock<Vec<i64>> = OnceLock::new();
 static COST_MODEL_PV11_V1: OnceLock<Vec<i64>> = OnceLock::new();
 static COST_MODEL_PV11_V2: OnceLock<Vec<i64>> = OnceLock::new();
 static COST_MODEL_PV11_V3: OnceLock<Vec<i64>> = OnceLock::new();
+static COST_MODEL_PV12_V3: OnceLock<Vec<i64>> = OnceLock::new();
+static COST_MODEL_PV12_V4: OnceLock<Vec<i64>> = OnceLock::new();
 
 macro_rules! cost_model {
     ($cache:ident, $path:literal, $length:literal) => {
@@ -65,18 +68,53 @@ fn parse_cost_model(path: &str, contents: &str, expected_len: usize) -> Vec<i64>
     costs
 }
 
-fn conformance_cost_model(plutus_version: PlutusVersion, protocol_version: ProtocolVersion) -> CostModel {
-    let costs = match (protocol_version.major(), plutus_version) {
-        (10, PlutusVersion::V1) => cost_model!(COST_MODEL_PV10_V1, "protocol-version-10/v1.json", 332),
-        (10, PlutusVersion::V2) => cost_model!(COST_MODEL_PV10_V2, "protocol-version-10/v2.json", 332),
-        (10, PlutusVersion::V3) => cost_model!(COST_MODEL_PV10_V3, "protocol-version-10/v3.json", 350),
-        (11, PlutusVersion::V1) => cost_model!(COST_MODEL_PV11_V1, "protocol-version-11/v1.json", 332),
-        (11, PlutusVersion::V2) => cost_model!(COST_MODEL_PV11_V2, "protocol-version-11/v2.json", 332),
-        (11, PlutusVersion::V3) => cost_model!(COST_MODEL_PV11_V3, "protocol-version-11/v3.json", 350),
-        (major, version) => panic!("missing conformance cost model for protocol {major} and {version}"),
+/// A Plutus ledger language a conformance program runs in.
+#[derive(Clone, Copy, Debug)]
+enum Language {
+    V1,
+    V2,
+    V3,
+    V4,
+}
+
+impl Language {
+    /// The Plutus version whose program decoding the language uses.
+    fn decoding(self) -> PlutusVersion {
+        match self {
+            Self::V1 => PlutusVersion::V1,
+            Self::V2 => PlutusVersion::V2,
+            Self::V3 | Self::V4 => PlutusVersion::V3,
+        }
+    }
+}
+
+impl fmt::Display for Language {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::V1 => "V1",
+            Self::V2 => "V2",
+            Self::V3 => "V3",
+            Self::V4 => "V4",
+        })
+    }
+}
+
+fn conformance_cost_model(language: Language, protocol_version: ProtocolVersion) -> CostModel {
+    let costs = match (protocol_version.major(), language) {
+        (10, Language::V1) => cost_model!(COST_MODEL_PV10_V1, "protocol-version-10/v1.json", 332),
+        (10, Language::V2) => cost_model!(COST_MODEL_PV10_V2, "protocol-version-10/v2.json", 332),
+        (10, Language::V3) => cost_model!(COST_MODEL_PV10_V3, "protocol-version-10/v3.json", 350),
+        (11, Language::V1) => cost_model!(COST_MODEL_PV11_V1, "protocol-version-11/v1.json", 332),
+        (11, Language::V2) => cost_model!(COST_MODEL_PV11_V2, "protocol-version-11/v2.json", 332),
+        (11, Language::V3) => cost_model!(COST_MODEL_PV11_V3, "protocol-version-11/v3.json", 350),
+        (12, Language::V3) => cost_model!(COST_MODEL_PV12_V3, "protocol-version-12/v3.json", 350),
+        (12, Language::V4) => {
+            return CostModel::v4(cost_model!(COST_MODEL_PV12_V4, "protocol-version-12/v4.json", 251));
+        }
+        (major, language) => panic!("missing conformance cost model for protocol {major} and {language}"),
     };
 
-    CostModel::new(plutus_version, protocol_version, costs)
+    CostModel::new(language.decoding(), protocol_version, costs)
 }
 
 pub fn budget(cpu: i64, mem: i64) -> String {
@@ -92,7 +130,7 @@ fn run_conformance(
     test_name: &str,
     title: &str,
     group: &str,
-    plutus_version: PlutusVersion,
+    language: Language,
     protocol_version: ProtocolVersion,
     program_text: &str,
     expected_output_text: &str,
@@ -100,6 +138,7 @@ fn run_conformance(
     expected_output_flat: Option<&str>,
     expected_budget: &str,
 ) {
+    let plutus_version = language.decoding();
     let program_text = program_text.replace("\r\n", "\n");
     let expected_output_text = expected_output_text.replace("\r\n", "\n");
     let expected_output_flat = expected_output_flat.map(|value| value.replace("\r\n", "\n"));
@@ -107,7 +146,7 @@ fn run_conformance(
 
     let arena = Arena::new();
     let Ok(program) = parse_program(&arena, &program_text, protocol_version).into_result() else {
-        report(test_name, title, group, &plutus_version.to_string(), &protocol_version.to_string(), PARSE_ERROR, None);
+        report(test_name, title, group, &language.to_string(), &protocol_version.to_string(), PARSE_ERROR, None);
         assert_eq!(expected_output_text.trim(), PARSE_ERROR, "expected a parse/decode error marker");
         assert_eq!(expected_budget.trim(), PARSE_ERROR, "expected a parse/decode error marker");
         return;
@@ -130,7 +169,7 @@ fn run_conformance(
                     test_name,
                     title,
                     group,
-                    &plutus_version.to_string(),
+                    &language.to_string(),
                     &protocol_version.to_string(),
                     PARSE_ERROR,
                     None,
@@ -158,8 +197,7 @@ fn run_conformance(
         );
     }
 
-    let mut result =
-        program.eval(&arena, conformance_cost_model(plutus_version, protocol_version), ExBudget::default());
+    let mut result = program.eval(&arena, conformance_cost_model(language, protocol_version), ExBudget::default());
     let info = mem::take(&mut result.info);
 
     let term = match result.into_term() {
@@ -167,7 +205,7 @@ fn run_conformance(
         Err(error) => {
             let actual =
                 if matches!(error, MachineError::OutOfExError(_)) { OUT_OF_BUDGET } else { EVALUATION_FAILURE };
-            report(test_name, title, group, &plutus_version.to_string(), &protocol_version.to_string(), actual, None);
+            report(test_name, title, group, &language.to_string(), &protocol_version.to_string(), actual, None);
             assert!(
                 expected_output_text.trim() == EVALUATION_FAILURE
                     || (actual == OUT_OF_BUDGET && expected_output_text.trim() == OUT_OF_BUDGET),
@@ -194,7 +232,7 @@ fn run_conformance(
         test_name,
         title,
         group,
-        &plutus_version.to_string(),
+        &language.to_string(),
         &protocol_version.to_string(),
         &expected_output_text,
         Some(actual_budget),
