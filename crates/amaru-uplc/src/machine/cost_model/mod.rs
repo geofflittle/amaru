@@ -74,6 +74,9 @@ impl CostModel {
             (Semantics::D, PlutusVersion::V1) => &DEFAULT_COST_MODEL_D_V1,
             (Semantics::D, PlutusVersion::V2) => &DEFAULT_COST_MODEL_D_V2,
             (Semantics::E, PlutusVersion::V3) => &DEFAULT_COST_MODEL_E_V3,
+            (Semantics::F, PlutusVersion::V1) => &DEFAULT_COST_MODEL_D_V1,
+            (Semantics::F, PlutusVersion::V2) => &DEFAULT_COST_MODEL_D_V2,
+            (Semantics::G, PlutusVersion::V3) => &DEFAULT_COST_MODEL_E_V3,
             (semantics, version) => unreachable!("no default cost model for {semantics:?} and {version:?}"),
         };
 

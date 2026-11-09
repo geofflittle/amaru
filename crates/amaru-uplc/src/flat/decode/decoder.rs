@@ -50,7 +50,7 @@ impl<'a> Ctx<'a> {
     pub fn is_program_version_available(&self) -> bool {
         match Semantics::new(self.plutus_version, self.protocol_version) {
             Semantics::A | Semantics::B => self.machine_version == MachineVersion::V1_0_0,
-            Semantics::C | Semantics::D | Semantics::E | Semantics::G => {
+            Semantics::C | Semantics::D | Semantics::E | Semantics::F | Semantics::G => {
                 matches!(self.machine_version, MachineVersion::V1_0_0 | MachineVersion::V1_1_0)
                     || (self.machine_version == MachineVersion::V1_2_0 && self.protocol_version >= PROTOCOL_VERSION_12)
             }

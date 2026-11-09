@@ -269,7 +269,7 @@ impl BuiltinCosts {
                             slope: param(DivideIntegerCpuSlope),
                         })),
                     ),
-                    Semantics::D => {
+                    Semantics::D | Semantics::F => {
                         TwoArguments::AboveAndBelowDiagonal(Box::new(TwoArguments::MultipliedSizes(MultipliedSizes {
                             intercept: param(DivideIntegerCpuIntercept),
                             slope: param(DivideIntegerCpuSlope),
@@ -423,10 +423,12 @@ impl BuiltinCosts {
                         minimum: param(ModIntegerMemMinimum),
                         slope: param(ModIntegerMemSlope),
                     }),
-                    Semantics::C | Semantics::D | Semantics::E | Semantics::G => TwoArguments::LinearInY(LinearSize {
-                        intercept: param(ModIntegerMemIntercept),
-                        slope: param(ModIntegerMemSlope),
-                    }),
+                    Semantics::C | Semantics::D | Semantics::E | Semantics::F | Semantics::G => {
+                        TwoArguments::LinearInY(LinearSize {
+                            intercept: param(ModIntegerMemIntercept),
+                            slope: param(ModIntegerMemSlope),
+                        })
+                    }
                 },
                 cpu: match semantics {
                     Semantics::A | Semantics::B => TwoArguments::ConstAboveDiagonal(
@@ -436,7 +438,7 @@ impl BuiltinCosts {
                             slope: param(ModIntegerCpuSlope),
                         })),
                     ),
-                    Semantics::D => {
+                    Semantics::D | Semantics::F => {
                         TwoArguments::AboveAndBelowDiagonal(Box::new(TwoArguments::MultipliedSizes(MultipliedSizes {
                             intercept: param(ModIntegerCpuIntercept),
                             slope: param(ModIntegerCpuSlope),
@@ -477,7 +479,7 @@ impl BuiltinCosts {
                         intercept: param(MultiplyIntegerCpuIntercept),
                         slope: param(MultiplyIntegerCpuSlope),
                     }),
-                    Semantics::B | Semantics::C | Semantics::D | Semantics::E | Semantics::G => {
+                    Semantics::B | Semantics::C | Semantics::D | Semantics::E | Semantics::F | Semantics::G => {
                         TwoArguments::MultipliedSizes(MultipliedSizes {
                             intercept: param(MultiplyIntegerCpuIntercept),
                             slope: param(MultiplyIntegerCpuSlope),
@@ -496,7 +498,7 @@ impl BuiltinCosts {
                     minimum: param(QuotientIntegerMemMinimum),
                 }),
                 cpu: match semantics {
-                    Semantics::A | Semantics::B | Semantics::D => TwoArguments::ConstAboveDiagonal(
+                    Semantics::A | Semantics::B | Semantics::D | Semantics::F => TwoArguments::ConstAboveDiagonal(
                         param(QuotientIntegerCpuConstant),
                         Box::new(TwoArguments::MultipliedSizes(MultipliedSizes {
                             intercept: param(QuotientIntegerCpuIntercept),
@@ -524,13 +526,15 @@ impl BuiltinCosts {
                         minimum: param(RemainderIntegerMemMinimum),
                         slope: param(RemainderIntegerMemSlope),
                     }),
-                    Semantics::C | Semantics::D | Semantics::E | Semantics::G => TwoArguments::LinearInY(LinearSize {
-                        intercept: param(RemainderIntegerMemIntercept),
-                        slope: param(RemainderIntegerMemSlope),
-                    }),
+                    Semantics::C | Semantics::D | Semantics::E | Semantics::F | Semantics::G => {
+                        TwoArguments::LinearInY(LinearSize {
+                            intercept: param(RemainderIntegerMemIntercept),
+                            slope: param(RemainderIntegerMemSlope),
+                        })
+                    }
                 },
                 cpu: match semantics {
-                    Semantics::A | Semantics::B | Semantics::D => TwoArguments::ConstAboveDiagonal(
+                    Semantics::A | Semantics::B | Semantics::D | Semantics::F => TwoArguments::ConstAboveDiagonal(
                         param(RemainderIntegerCpuConstant),
                         Box::new(TwoArguments::MultipliedSizes(MultipliedSizes {
                             intercept: param(RemainderIntegerCpuIntercept),
@@ -638,7 +642,7 @@ impl BuiltinCosts {
                         intercept: param(VerifyEd25519SignatureCpuIntercept),
                         slope: param(VerifyEd25519SignatureCpuSlope),
                     }),
-                    Semantics::B | Semantics::C | Semantics::D | Semantics::E | Semantics::G => {
+                    Semantics::B | Semantics::C | Semantics::D | Semantics::E | Semantics::F | Semantics::G => {
                         ThreeArguments::LinearInY(LinearSize {
                             intercept: param(VerifyEd25519SignatureCpuIntercept),
                             slope: param(VerifyEd25519SignatureCpuSlope),

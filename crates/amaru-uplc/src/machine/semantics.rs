@@ -14,14 +14,14 @@
 
 use amaru_kernel::{
     PlutusVersion, ProtocolVersion,
-    protocol_version::{PROTOCOL_VERSION_9, PROTOCOL_VERSION_11},
+    protocol_version::{PROTOCOL_VERSION_9, PROTOCOL_VERSION_11, PROTOCOL_VERSION_12},
 };
 
 /// Ledger builtin semantics variants. The semantic versioning is a little weird and are in-fact
 /// devided in two groups:
 ///
-/// - PlutusV1 & PlutusV2 semantics, which can be A, B or D;
-/// - PlutusV3 semantics, which can be C or E;
+/// - PlutusV1 & PlutusV2 semantics, which can be A, B, D or F;
+/// - PlutusV3 semantics, which can be C, E or G;
 /// - Explicit PlutusV4 evaluation uses G.
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Default)]
 pub enum Semantics {
@@ -31,6 +31,7 @@ pub enum Semantics {
     D,
     #[default]
     E,
+    F,
     G,
 }
 
@@ -38,7 +39,9 @@ impl Semantics {
     pub fn new(plutus_version: PlutusVersion, protocol_version: ProtocolVersion) -> Self {
         match plutus_version {
             PlutusVersion::V1 | PlutusVersion::V2 => {
-                if protocol_version >= PROTOCOL_VERSION_11 {
+                if protocol_version >= PROTOCOL_VERSION_12 {
+                    Self::F
+                } else if protocol_version >= PROTOCOL_VERSION_11 {
                     Self::D
                 } else if protocol_version < PROTOCOL_VERSION_9 {
                     Self::A
@@ -47,7 +50,9 @@ impl Semantics {
                 }
             }
             PlutusVersion::V3 => {
-                if protocol_version >= PROTOCOL_VERSION_11 {
+                if protocol_version >= PROTOCOL_VERSION_12 {
+                    Self::G
+                } else if protocol_version >= PROTOCOL_VERSION_11 {
                     Self::E
                 } else {
                     Self::C
@@ -57,31 +62,49 @@ impl Semantics {
     }
 
     pub fn costs_strings_by_utf8_bytes(&self) -> bool {
-        matches!(self, Self::D | Self::E | Self::G)
+        match self {
+            Self::D | Self::E | Self::F | Self::G => true,
+            Self::A | Self::B | Self::C => false,
+        }
     }
 
     /// Since protocol 11, selected builtins unlift bytestring operands through
     /// Plutus' CByteString type, which allows at most 65536 bytes.
     pub fn byte_string_operand_range_checks(&self) -> bool {
-        matches!(self, Self::D | Self::E | Self::G)
+        match self {
+            Self::D | Self::E | Self::F | Self::G => true,
+            Self::A | Self::B | Self::C => false,
+        }
     }
 
     pub fn cons_byte_string_range_checks(&self) -> bool {
-        matches!(self, Self::C | Self::E | Self::G)
+        match self {
+            Self::C | Self::E | Self::G => true,
+            Self::A | Self::B | Self::D | Self::F => false,
+        }
     }
 
     /// Whether arithmetic builtins reject integers outside Cardano's signed 262144-bit range.
     pub fn enforces_integer_bounds(&self) -> bool {
-        matches!(self, Self::D | Self::E)
+        match self {
+            Self::D | Self::E => true,
+            Self::A | Self::B | Self::C | Self::F | Self::G => false,
+        }
     }
 
     /// Whether `shiftByteString` and `rotateByteString` reject shift amounts outside the signed 64-bit range.
     pub fn bounds_shift_amount_to_int64(&self) -> bool {
-        matches!(self, Self::D | Self::E | Self::G)
+        match self {
+            Self::D | Self::E | Self::F | Self::G => true,
+            Self::A | Self::B | Self::C => false,
+        }
     }
 
     /// Whether `writeBits` rejects inputs longer than `WRITE_BITS_MAXIMUM_INPUT_LENGTH` bytes.
     pub fn bounds_write_bits_input_length(&self) -> bool {
-        matches!(self, Self::D | Self::E | Self::G)
+        match self {
+            Self::D | Self::E | Self::F | Self::G => true,
+            Self::A | Self::B | Self::C => false,
+        }
     }
 }
